@@ -111,11 +111,13 @@ public class SpigetRestFetcher {
 	public int fetchN(int n) {
 		log.info("Running Fetch #" + n);
 
-		FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().limit(itemsPerFetch).skip(n * itemsPerFetch);
+		FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 		int c = 0;
 
 		for (Document document : iterable) {
 			c++;
+
+			log.info("F" + n + " I" + c);
 
 			try {
 				try {
