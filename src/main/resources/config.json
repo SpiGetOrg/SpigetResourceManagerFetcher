@@ -1,0 +1,12 @@
+{
+  "fetch.pause": 2000,
+  "fetch.userAgent": "Spiget",
+  "database.itemsPerFind": 500,
+  "database.timeout": 3000,
+  "database.host": "localhost",
+  "database.port": 27017,
+  "database.name": "spiget",
+  "database.user": "spiget",
+  "database.pass": "spiget",
+  "database.db": "admin"
+}
