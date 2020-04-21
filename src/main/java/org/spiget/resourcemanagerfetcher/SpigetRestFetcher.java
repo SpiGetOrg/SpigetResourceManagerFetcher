@@ -212,23 +212,23 @@ public class SpigetRestFetcher {
 	}
 
 	void updateName(int id, String name) {
-		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("name", name)));
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("name", name).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void updateTag(int id, String tag) {
-		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("tag", tag)));
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("tag", tag).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void updateDownloads(int id, int downloads) {
-		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("downloads", downloads)));
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("downloads", downloads).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void updateRatingCount(int id, int count) {
-		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.count", count)));
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.count", count).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void updateRatingAvg(int id, float rating) {
-		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.average", rating)));
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.average", rating).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void requestUpdate(int id) {
