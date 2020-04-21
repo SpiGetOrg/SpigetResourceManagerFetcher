@@ -7,6 +7,8 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
 import org.jetbrains.annotations.Nullable;
+import org.spiget.client.json.JsonClient;
+import org.spiget.client.json.JsonResponse;
 import org.spiget.data.UpdateRequest;
 import org.spiget.data.resource.Rating;
 import org.spiget.data.resource.Resource;
