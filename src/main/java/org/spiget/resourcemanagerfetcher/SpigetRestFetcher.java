@@ -26,6 +26,7 @@ public class SpigetRestFetcher {
 
 	int  itemsPerFetch = 500;
 	long delay         = 1000;
+	int start =0;
 
 	@Nullable
 	public SpigetRestFetcher init() throws IOException {
@@ -96,12 +97,13 @@ public class SpigetRestFetcher {
 		JsonClient.userAgent = config.get("request.userAgent").getAsString();
 		JsonClient.logConn = config.get("debug.connections").getAsBoolean();
 		delay = config.get("fetch.pause").getAsLong();
+		start = config.get("fetch.start").getAsInt();
 
 		return this;
 	}
 
 	public void fetch() {
-		int n = 0;
+		int n = start;
 		int c = 0;
 		while ((c = fetchN(n)) >= itemsPerFetch) {
 			n++;

@@ -1,6 +1,7 @@
 {
   "fetch.pause": 2000,
   "fetch.userAgent": "Spiget",
+  "fetch.start": 0,
   "database.itemsPerFind": 500,
   "database.timeout": 3000,
   "database.host": "localhost",
