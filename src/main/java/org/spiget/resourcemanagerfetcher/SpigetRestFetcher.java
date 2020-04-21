@@ -175,18 +175,18 @@ public class SpigetRestFetcher {
 								int ratingCount = statsJson.get("reviews").getAsInt();
 								float ratingAvg = statsJson.get("rating").getAsFloat();
 								if (ratingCount > rating.getCount()) {
-									requestUpdate = true;
+//									requestUpdate = true;
 									updateRatingCount(resource.getId(), ratingCount);
 								}
 								if (ratingAvg != rating.getAverage()) {
-									requestUpdate = true;
+//									requestUpdate = true;
 									updateRatingAvg(resource.getId(), ratingAvg);
 								}
 							}
 
 							int updates = statsJson.get("updates").getAsInt();
 							if (updates > resource.getUpdates().size()) {
-								requestUpdate = true;
+//								requestUpdate = true;
 							}
 						}
 
