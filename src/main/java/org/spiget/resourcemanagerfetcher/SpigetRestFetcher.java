@@ -117,6 +117,7 @@ public class SpigetRestFetcher {
 
 		FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 		int c = 0;
+		long updateStart = System.currentTimeMillis();
 
 		for (Document document : iterable) {
 			c++;
@@ -201,6 +202,8 @@ public class SpigetRestFetcher {
 				log.log(Level.WARN, "Exception while trying to check resource", e);
 			}
 		}
+
+		log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) System.currentTimeMillis() - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
 
 		return c;
 	}
