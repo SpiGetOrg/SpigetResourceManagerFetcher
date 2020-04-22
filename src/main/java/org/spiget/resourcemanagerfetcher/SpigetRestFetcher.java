@@ -114,96 +114,100 @@ public class SpigetRestFetcher {
 
 	public int fetchN(int n) {
 		log.info("Running Fetch #" + n);
-
-		FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 		int c = 0;
-		long updateStart = System.currentTimeMillis();
 
-		for (Document document : iterable) {
-			c++;
+		try {
+			FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+			long updateStart = System.currentTimeMillis();
 
-			log.info("F" + n + " I" + c);
+			for (Document document : iterable) {
+				c++;
 
-			try {
+				log.info("F" + n + " I" + c);
+
 				try {
-					Thread.sleep(delay);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				Resource resource = SpigetGson.RESOURCE.fromJson(DatabaseParser.toJson(document), Resource.class);
-				JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getResource&id=" + resource.getId());
-				if (response == null) { continue; }
-				if (response.code != 200) {
-					log.warn("Got Code " + response.code + " for getResource #" + resource.getId());
-					if (response.code == 503) {// Cloudflare
-					} else if (response.code == 404) {// Resource not found
-						log.info("Scheduling #" + resource.getId() + " for deletion");
-						requestUpdate(resource.getId(), true);
-					} else {
-						log.error("Unexpected status code");
+					try {
+						Thread.sleep(delay);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
 					}
-				} else {
-					if (!response.json.isJsonObject()) {
-						log.warn("Expected response to be a json object but was not.");
-						log.warn(response.json);
+					Resource resource = SpigetGson.RESOURCE.fromJson(DatabaseParser.toJson(document), Resource.class);
+					JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getResource&id=" + resource.getId());
+					if (response == null) { continue; }
+					if (response.code != 200) {
+						log.warn("Got Code " + response.code + " for getResource #" + resource.getId());
+						if (response.code == 503) {// Cloudflare
+						} else if (response.code == 404) {// Resource not found
+							log.info("Scheduling #" + resource.getId() + " for deletion");
+							requestUpdate(resource.getId(), true);
+						} else {
+							log.error("Unexpected status code");
+						}
 					} else {
-						JsonObject json = response.json.getAsJsonObject();
+						if (!response.json.isJsonObject()) {
+							log.warn("Expected response to be a json object but was not.");
+							log.warn(response.json);
+						} else {
+							JsonObject json = response.json.getAsJsonObject();
 
-						String title = json.get("title").getAsString();
-						if (resource.getName() != null && title != null && !resource.getName().equals(title)) {// name changed
-							log.info("Name of #" + resource.getId() + " changed  \"" + resource.getName() + "\" -> \"" + title + "\"");
-							updateName(resource.getId(), title);
-						}
-
-						String tag = json.get("tag").getAsString();
-						if (resource.getTag() != null && tag != null && !resource.getTag().equals(tag)) {// tag changed
-							log.info("Tag of #" + resource.getId() + " changed  \"" + resource.getTag() + "\" -> \"" + tag + "\"");
-							updateTag(resource.getId(), tag);
-						}
-
-						boolean requestUpdate = false;
-
-						JsonObject statsJson = json.get("stats").getAsJsonObject();
-						if (statsJson != null) {
-							int downloads = statsJson.get("downloads").getAsInt();
-							if (resource.getDownloads() != downloads) {
-								log.info("Downloads of #" + resource.getId() + " changed  " + resource.getDownloads() + " -> " + downloads);
-								updateDownloads(resource.getId(), downloads);
+							String title = json.get("title").getAsString();
+							if (resource.getName() != null && title != null && !resource.getName().equals(title)) {// name changed
+								log.info("Name of #" + resource.getId() + " changed  \"" + resource.getName() + "\" -> \"" + title + "\"");
+								updateName(resource.getId(), title);
 							}
 
-							Rating rating = resource.getRating();
-							if (rating != null) {
-								int ratingCount = statsJson.get("reviews").getAsInt();
-								float ratingAvg = statsJson.get("rating").getAsFloat();
-								if (ratingCount > rating.getCount()) {
-//									requestUpdate = true;
-									updateRatingCount(resource.getId(), ratingCount);
+							String tag = json.get("tag").getAsString();
+							if (resource.getTag() != null && tag != null && !resource.getTag().equals(tag)) {// tag changed
+								log.info("Tag of #" + resource.getId() + " changed  \"" + resource.getTag() + "\" -> \"" + tag + "\"");
+								updateTag(resource.getId(), tag);
+							}
+
+							boolean requestUpdate = false;
+
+							JsonObject statsJson = json.get("stats").getAsJsonObject();
+							if (statsJson != null) {
+								int downloads = statsJson.get("downloads").getAsInt();
+								if (resource.getDownloads() != downloads) {
+									log.info("Downloads of #" + resource.getId() + " changed  " + resource.getDownloads() + " -> " + downloads);
+									updateDownloads(resource.getId(), downloads);
 								}
-								if (ratingAvg != rating.getAverage()) {
-//									requestUpdate = true;
-									updateRatingAvg(resource.getId(), ratingAvg);
+
+								Rating rating = resource.getRating();
+								if (rating != null) {
+									int ratingCount = statsJson.get("reviews").getAsInt();
+									float ratingAvg = statsJson.get("rating").getAsFloat();
+									if (ratingCount > rating.getCount()) {
+										//									requestUpdate = true;
+										updateRatingCount(resource.getId(), ratingCount);
+									}
+									if (ratingAvg != rating.getAverage()) {
+										//									requestUpdate = true;
+										updateRatingAvg(resource.getId(), ratingAvg);
+									}
+								}
+
+								int updates = statsJson.get("updates").getAsInt();
+								if (updates > resource.getUpdates().size()) {
+									//								requestUpdate = true;
 								}
 							}
 
-							int updates = statsJson.get("updates").getAsInt();
-							if (updates > resource.getUpdates().size()) {
-//								requestUpdate = true;
+							if (requestUpdate) {
+								log.info("Requesting update for #" + resource.getId());
+								requestUpdate(resource.getId(), false);
 							}
-						}
 
-						if (requestUpdate) {
-							log.info("Requesting update for #" + resource.getId());
-							requestUpdate(resource.getId(), false);
 						}
-
 					}
+				} catch (Exception e) {
+					log.log(Level.WARN, "Exception while trying to check resource", e);
 				}
-			} catch (Exception e) {
-				log.log(Level.WARN, "Exception while trying to check resource", e);
 			}
-		}
 
-		log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) System.currentTimeMillis() - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
+			log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) System.currentTimeMillis() - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
+		} catch (Exception e) {
+			log.log(Level.ERROR, "Exception in fetch #" + n, e);
+		}
 
 		return c;
 	}
