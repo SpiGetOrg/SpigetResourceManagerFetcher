@@ -105,10 +105,27 @@ public class SpigetRestFetcher {
 	}
 
 	public void fetch() {
+		long startTime = System.currentTimeMillis();
+
+		try {
+			databaseClient.updateStatus("fetch.rest.start", startTime);
+			databaseClient.updateStatus("fetch.rest.end", 0);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 		int n = start;
 		int c = 0;
 		while ((c = fetchN(n)) >= itemsPerFetch) {
 			n++;
+		}
+
+		long endTime  = System.currentTimeMillis();
+		try {
+			databaseClient.updateStatus("fetch.rest.end", endTime);
+			databaseClient.updateStatus("fetch.rest.duration", (endTime - startTime));
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -117,8 +134,13 @@ public class SpigetRestFetcher {
 		int c = 0;
 
 		try {
+			databaseClient.updateStatus("fetch.rest.num", n);
+			databaseClient.updateStatus("fetch.rest.item.max", itemsPerFetch);
+
 			FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 			long updateStart = System.currentTimeMillis();
+
+			databaseClient.updateStatus("fetch.rest.n.start", updateStart);
 
 			for (Document document : iterable) {
 				c++;
@@ -126,6 +148,8 @@ public class SpigetRestFetcher {
 				log.info("F" + n + " I" + c);
 
 				try {
+					databaseClient.updateStatus("fetch.rest.item", c);
+
 					try {
 						Thread.sleep(delay);
 					} catch (InterruptedException e) {
@@ -204,7 +228,11 @@ public class SpigetRestFetcher {
 				}
 			}
 
-			log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) System.currentTimeMillis() - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
+			long updateEnd =System.currentTimeMillis();
+			databaseClient.updateStatus("fetch.rest.n.end", updateEnd);
+			databaseClient.updateStatus("fetch.rest.n.duration", (updateEnd - updateStart));
+
+			log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) updateEnd - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
 		} catch (Exception e) {
 			log.log(Level.ERROR, "Exception in fetch #" + n, e);
 		}
