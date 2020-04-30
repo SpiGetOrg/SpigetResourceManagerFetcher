@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spiget.client.json.JsonClient;
 import org.spiget.client.json.JsonResponse;
 import org.spiget.data.UpdateRequest;
+import org.spiget.data.author.Author;
 import org.spiget.data.resource.Rating;
 import org.spiget.data.resource.Resource;
 import org.spiget.database.DatabaseClient;
@@ -138,6 +139,10 @@ public class SpigetRestFetcher {
 			databaseClient.updateStatus("fetch.rest.num", n);
 			databaseClient.updateStatus("fetch.rest.item.max", itemsPerFetch);
 
+
+			//// RESOURCES
+
+
 			FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 			long updateStart = System.currentTimeMillis();
 
@@ -146,7 +151,7 @@ public class SpigetRestFetcher {
 			for (Document document : iterable) {
 				c++;
 
-				log.info("F" + n + " I" + c);
+				log.info("R F" + n + " I" + c);
 
 				try {
 					databaseClient.updateStatus("fetch.rest.item", c);
@@ -229,6 +234,61 @@ public class SpigetRestFetcher {
 				}
 			}
 
+
+
+			//// AUTHORS
+
+
+			databaseClient.updateStatus("fetch.rest.type", "author");
+
+			 iterable = databaseClient.getAuthorsCollection().find().sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+
+			for (Document document : iterable) {
+				c++;
+
+				log.info("A F" + n + " I" + c);
+
+				try {
+					databaseClient.updateStatus("fetch.rest.item", c);
+
+					try {
+						Thread.sleep(delay);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					Author author = SpigetGson.AUTHOR.fromJson(DatabaseParser.toJson(document), Author.class);
+					JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getAuthor&id=" + author.getId());
+					if (response == null) { continue; }
+					if (response.code != 200) {
+						log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
+						if (response.code == 503) {// Cloudflare
+						} else if (response.code == 404) {// Author not found
+//							log.info("Scheduling #" + author.getId() + " for deletion");
+//							requestUpdate(author.getId(), true);
+						} else {
+							log.error("Unexpected status code");
+						}
+					} else {
+						if (!response.json.isJsonObject()) {
+							log.warn("Expected response to be a json object but was not.");
+							log.warn(response.json);
+						} else {
+							JsonObject json = response.json.getAsJsonObject();
+
+							String username = json.get("username").getAsString();
+							if (author.getName() != null && username != null && !author.getName().equals(username)) {// name changed
+								log.info("Username of #" + author.getId() + " changed  \"" + author.getName() + "\" -> \"" + username + "\"");
+								updateUserName(author.getId(), username);
+							}
+						}
+					}
+				} catch (Exception e) {
+					log.log(Level.WARN, "Exception while trying to check resource", e);
+				}
+			}
+
+
+
 			long updateEnd =System.currentTimeMillis();
 			databaseClient.updateStatus("fetch.rest.n.end", updateEnd);
 			databaseClient.updateStatus("fetch.rest.n.duration", (updateEnd - updateStart));
@@ -265,6 +325,10 @@ public class SpigetRestFetcher {
 
 	void updateRatingAvg(int id, float rating) {
 		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.average", rating).append("fetch.restLatest", System.currentTimeMillis())));
+	}
+
+	void updateUserName(int id, String name) {
+		databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("name", name).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void requestUpdate(int id) {
