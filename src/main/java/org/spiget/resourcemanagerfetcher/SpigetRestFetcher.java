@@ -134,6 +134,7 @@ public class SpigetRestFetcher {
 		int c = 0;
 
 		try {
+			databaseClient.updateStatus("fetch.rest.type", "resource");
 			databaseClient.updateStatus("fetch.rest.num", n);
 			databaseClient.updateStatus("fetch.rest.item.max", itemsPerFetch);
 
