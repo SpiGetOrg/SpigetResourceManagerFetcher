@@ -1,5 +1,6 @@
 package org.spiget.resourcemanagerfetcher;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mongodb.client.FindIterable;
@@ -13,12 +14,15 @@ import org.spiget.data.UpdateRequest;
 import org.spiget.data.author.Author;
 import org.spiget.data.resource.Rating;
 import org.spiget.data.resource.Resource;
+import org.spiget.data.resource.SpigetIcon;
 import org.spiget.database.DatabaseClient;
 import org.spiget.database.DatabaseParser;
 import org.spiget.database.SpigetGson;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 @Log4j2
 public class SpigetRestFetcher {
@@ -263,8 +267,11 @@ public class SpigetRestFetcher {
 						log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
 						if (response.code == 503) {// Cloudflare
 						} else if (response.code == 404) {// Author not found
+							// disabled deletion again, since the data returned from the api seems really inconsistent
+							// i.e. members which do exist frequently return 404s
 //							log.info("Scheduling #" + author.getId() + " for deletion");
 //							requestUpdate(author.getId(), true);
+//							deleteAuthor(author.getId());
 						} else {
 							log.error("Unexpected status code");
 						}
@@ -279,6 +286,35 @@ public class SpigetRestFetcher {
 							if (author.getName() != null && username != null && !author.getName().equals(username)) {// name changed
 								log.info("Username of #" + author.getId() + " changed  \"" + author.getName() + "\" -> \"" + username + "\"");
 								updateUserName(author.getId(), username);
+							}
+
+							JsonObject identities = json.get("identities").getAsJsonObject();
+							Map identityMap = new HashMap();
+							if (author.getIdentities() != null) {
+								identityMap.putAll(author.getIdentities());
+							}
+							if (identities != null ) {
+								boolean changed = false;
+								for (Map.Entry<String, JsonElement> entry : identities.entrySet()) {
+									if (!identityMap.containsKey(entry.getKey()) || (entry.getValue() != null && !entry.getValue().getAsString().equals(author.getIdentities().get(entry.getKey())))) {
+										//noinspection unchecked
+										identityMap.put(entry.getKey(), entry.getValue().getAsString());
+										log.info(entry.getKey()+ " identity of #" + author.getId() + " changed  \"" + identityMap.get(entry.getKey()) + "\" -> \"" + entry.getValue().getAsString() + "\"");
+										changed = true;
+									}
+								}
+								if (changed) {
+									//noinspection unchecked
+									updateIdentities(author.getId(), identityMap);
+								}
+							}
+
+							JsonObject avatar = json.get("avatar").getAsJsonObject();
+							if (avatar != null && author.getIcon() != null) {
+								SpigetIcon icon = author.getIcon();
+								if ((avatar.get("info") != null && !avatar.get("info").getAsString().equals(icon.getInfo())) || (avatar.get("hash") != null && !avatar.get("hash").getAsString().equals(icon.getHash()))) {
+									updateAvatar(author.getId(), avatar.get("info").getAsString(), avatar.get("hash").getAsString());
+								}
 							}
 						}
 					}
@@ -331,6 +367,18 @@ public class SpigetRestFetcher {
 		databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("name", name).append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
+	void updateIdentities(int id, Map<String, Object> identities) {
+		databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("identities", new Document(identities)).append("fetch.restLatest", System.currentTimeMillis())));
+	}
+
+	void updateAvatar(int id, String info, String hash) {
+		databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("icon.info", info).append("icon.hash", hash).append("fetch.restLatest", System.currentTimeMillis())));
+	}
+
+	void deleteAuthor(int id) {
+		databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("shouldDelete", true)));
+	}
+
 	void requestUpdate(int id) {
 		requestUpdate(id, false);
 	}
@@ -341,6 +389,7 @@ public class SpigetRestFetcher {
 
 	void requestUpdate(int id, boolean shouldDelete, boolean versions, boolean updates, boolean reviews) {
 		UpdateRequest request = new UpdateRequest();
+		request.setType("resource");
 		request.setDelete(shouldDelete);
 		request.setVersions(versions);
 		request.setUpdates(updates);
