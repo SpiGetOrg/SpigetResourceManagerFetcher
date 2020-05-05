@@ -288,24 +288,27 @@ public class SpigetRestFetcher {
 								updateUserName(author.getId(), username);
 							}
 
-							JsonObject identities = json.get("identities").getAsJsonObject();
-							Map identityMap = new HashMap();
-							if (author.getIdentities() != null) {
-								identityMap.putAll(author.getIdentities());
-							}
-							if (identities != null ) {
-								boolean changed = false;
-								for (Map.Entry<String, JsonElement> entry : identities.entrySet()) {
-									if (!identityMap.containsKey(entry.getKey()) || (entry.getValue() != null && !entry.getValue().getAsString().equals(author.getIdentities().get(entry.getKey())))) {
-										//noinspection unchecked
-										identityMap.put(entry.getKey(), entry.getValue().getAsString());
-										log.info(entry.getKey()+ " identity of #" + author.getId() + " changed  \"" + identityMap.get(entry.getKey()) + "\" -> \"" + entry.getValue().getAsString() + "\"");
-										changed = true;
-									}
+							JsonElement identitiesEl = json.get("identities");
+							if (identitiesEl.isJsonObject()) {
+								JsonObject identities = identitiesEl.getAsJsonObject();
+								Map identityMap = new HashMap();
+								if (author.getIdentities() != null) {
+									identityMap.putAll(author.getIdentities());
 								}
-								if (changed) {
-									//noinspection unchecked
-									updateIdentities(author.getId(), identityMap);
+								if (identities != null) {
+									boolean changed = false;
+									for (Map.Entry<String, JsonElement> entry : identities.entrySet()) {
+										if (!identityMap.containsKey(entry.getKey()) || (entry.getValue() != null && !entry.getValue().getAsString().equals(author.getIdentities().get(entry.getKey())))) {
+											//noinspection unchecked
+											identityMap.put(entry.getKey(), entry.getValue().getAsString());
+											log.info(entry.getKey() + " identity of #" + author.getId() + " changed  \"" + identityMap.get(entry.getKey()) + "\" -> \"" + entry.getValue().getAsString() + "\"");
+											changed = true;
+										}
+									}
+									if (changed) {
+										//noinspection unchecked
+										updateIdentities(author.getId(), identityMap);
+									}
 								}
 							}
 
