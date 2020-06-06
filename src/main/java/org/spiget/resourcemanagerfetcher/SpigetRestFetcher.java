@@ -114,11 +114,11 @@ public class SpigetRestFetcher {
 
 		try {
 			databaseClient.updateStatus("fetch.rest.start", startTime);
-			int lastEnd = databaseClient.getStatus("fetch.rest.end");
+			int lastEnd = databaseClient.getStatus("fetch.rest.end", 0);
 			databaseClient.updateStatus("fetch.rest.lastEnd", lastEnd);
 			databaseClient.updateStatus("fetch.rest.end", 0);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.log(Level.ERROR, "Failed to update status", e);
 		}
 
 		int n = start;
