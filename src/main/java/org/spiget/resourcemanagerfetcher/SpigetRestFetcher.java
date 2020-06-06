@@ -114,6 +114,8 @@ public class SpigetRestFetcher {
 
 		try {
 			databaseClient.updateStatus("fetch.rest.start", startTime);
+			int lastEnd = databaseClient.getStatus("fetch.rest.end");
+			databaseClient.updateStatus("fetch.rest.lastEnd", lastEnd);
 			databaseClient.updateStatus("fetch.rest.end", 0);
 		} catch (Exception e) {
 			e.printStackTrace();
