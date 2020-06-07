@@ -328,11 +328,13 @@ public class SpigetRestFetcher {
 				}
 			}
 
-
-
-			long updateEnd =System.currentTimeMillis();
-			databaseClient.updateStatus("fetch.rest.n.end", updateEnd);
-			databaseClient.updateStatus("fetch.rest.n.duration", (updateEnd - updateStart));
+			long updateEnd = System.currentTimeMillis();
+			try {
+				databaseClient.updateStatus("fetch.rest.n.end", updateEnd);
+				databaseClient.updateStatus("fetch.rest.n.duration", (updateEnd - updateStart));
+			} catch (Exception e) {
+				log.log(Level.ERROR, "Failed to update status", e);
+			}
 
 			log.log(Level.INFO, "Finished fetch #"+n+". Took " + (((double) updateEnd - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
 		} catch (Exception e) {
