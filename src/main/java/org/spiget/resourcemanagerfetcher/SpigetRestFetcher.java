@@ -134,6 +134,8 @@ public class SpigetRestFetcher {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+
+		log.log(Level.INFO, "Finished. Took " + (((double) endTime - startTime) / 1000.0 / 60.0) + " minutes total.");
 	}
 
 	public int fetchN(int n) {
