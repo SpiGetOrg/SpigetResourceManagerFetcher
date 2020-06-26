@@ -74,6 +74,9 @@ public class SpigetRestFetcher {
 			}
 		}
 
+		JsonClient.userAgent = config.get("request.userAgent").getAsString();
+		JsonClient.logConn = config.get("debug.connections").getAsBoolean();
+
 		{
 			log.info("Testing SpigotMC connection...");
 			long testStart = System.currentTimeMillis();
@@ -101,8 +104,6 @@ public class SpigetRestFetcher {
 		}
 
 		itemsPerFetch = config.get("database.itemsPerFind").getAsInt();
-		JsonClient.userAgent = config.get("request.userAgent").getAsString();
-		JsonClient.logConn = config.get("debug.connections").getAsBoolean();
 		delay = config.get("fetch.pause").getAsLong();
 		start = config.get("fetch.start").getAsInt();
 
