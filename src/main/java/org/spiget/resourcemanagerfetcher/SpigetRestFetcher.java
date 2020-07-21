@@ -203,6 +203,16 @@ public class SpigetRestFetcher {
 
 							boolean requestUpdate = false;
 
+							String version = json.get("current_version").getAsString();
+							if (version != null && resource.getVersion() != null) {
+								Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
+								String versionName = versionDocument.getString("name");
+								if (versionName != null && !version.equals(versionName)) {
+									log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\", requesting an update!");
+									requestUpdate = true;
+								}
+							}
+
 							JsonObject statsJson = json.get("stats").getAsJsonObject();
 							if (statsJson != null) {
 								int downloads = statsJson.get("downloads").getAsInt();
@@ -227,7 +237,7 @@ public class SpigetRestFetcher {
 
 								int updates = statsJson.get("updates").getAsInt();
 								if (updates > resource.getUpdates().size()) {
-									//								requestUpdate = true;
+									requestUpdate = true;
 								}
 							}
 
