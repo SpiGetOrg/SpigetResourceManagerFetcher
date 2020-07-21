@@ -178,7 +178,7 @@ public class SpigetRestFetcher {
 						if (response.code == 503) {// Cloudflare
 						} else if (response.code == 404) {// Resource not found
 							log.info("Scheduling #" + resource.getId() + " for deletion");
-							requestUpdate(resource.getId(), true);
+							requestUpdate(resource.getId(), "resource", true);
 						} else {
 							log.error("Unexpected status code");
 						}
@@ -233,7 +233,7 @@ public class SpigetRestFetcher {
 
 							if (requestUpdate) {
 								log.info("Requesting update for #" + resource.getId());
-								requestUpdate(resource.getId(), false);
+								requestUpdate(resource.getId(), "resource", false);
 							}
 
 						}
@@ -272,11 +272,9 @@ public class SpigetRestFetcher {
 						log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
 						if (response.code == 503) {// Cloudflare
 						} else if (response.code == 404) {// Author not found
-							// disabled deletion again, since the data returned from the api seems really inconsistent
-							// i.e. members which do exist frequently return 404s
-//							log.info("Scheduling #" + author.getId() + " for deletion");
-//							requestUpdate(author.getId(), true);
-//							deleteAuthor(author.getId());
+							log.info("Scheduling #" + author.getId() + " for deletion");
+							requestUpdate(author.getId(), "author", true);
+							deleteAuthor(author.getId());
 						} else {
 							log.error("Unexpected status code");
 						}
@@ -390,16 +388,16 @@ public class SpigetRestFetcher {
 	}
 
 	void requestUpdate(int id) {
-		requestUpdate(id, false);
+		requestUpdate(id, "resource", false);
 	}
 
-	void requestUpdate(int id, boolean shouldDelete) {
-		requestUpdate(id, shouldDelete, true, true, true);
+	void requestUpdate(int id, String type, boolean shouldDelete) {
+		requestUpdate(id, type, shouldDelete, true, true, true);
 	}
 
-	void requestUpdate(int id, boolean shouldDelete, boolean versions, boolean updates, boolean reviews) {
+	void requestUpdate(int id, String type, boolean shouldDelete, boolean versions, boolean updates, boolean reviews) {
 		UpdateRequest request = new UpdateRequest();
-		request.setType("resource");
+		request.setType(type);
 		request.setDelete(shouldDelete);
 		request.setVersions(versions);
 		request.setUpdates(updates);
