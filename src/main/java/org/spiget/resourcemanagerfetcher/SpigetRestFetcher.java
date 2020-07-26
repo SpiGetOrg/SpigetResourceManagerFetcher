@@ -241,6 +241,18 @@ public class SpigetRestFetcher {
 								}
 							}
 
+							JsonObject premiumJson = json.has("premium") ? json.get("premium").getAsJsonObject() : null;
+							if (premiumJson != null) {
+								if (premiumJson.has("price")) {
+									if (!resource.isPremium()) {
+										log.warn("SpigotMC says #" + resource.getId() + " is premium but DB says it's not!");
+									}
+									if(!resource.isPremium()||resource.getPrice() != premiumJson.get("price").getAsDouble() ||!resource.getCurrency().equals(premiumJson.get("currency").getAsString().toUpperCase())) {
+										updatePrice(resource.getId(), premiumJson.get("price").getAsDouble(), premiumJson.get("currency").getAsString().toUpperCase());
+									}
+								}
+							}
+
 							if (requestUpdate) {
 								log.info("Requesting update for #" + resource.getId());
 								requestUpdate(resource.getId(), "resource", false);
@@ -379,6 +391,14 @@ public class SpigetRestFetcher {
 
 	void updateRatingAvg(int id, float rating) {
 		databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("rating.average", rating).append("fetch.restLatest", System.currentTimeMillis())));
+	}
+
+	void updatePrice(int id, double price, String currency) {
+		databaseClient.getResourcesCollection().updateOne(new Document("_id", id),
+				new Document("$set", new Document("premium", true)
+						.append("price", price)
+						.append("currency", currency)
+						.append("fetch.restLatest", System.currentTimeMillis())));
 	}
 
 	void updateUserName(int id, String name) {
