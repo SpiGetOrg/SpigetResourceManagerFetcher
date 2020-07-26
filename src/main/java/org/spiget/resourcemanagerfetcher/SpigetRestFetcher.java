@@ -203,13 +203,32 @@ public class SpigetRestFetcher {
 
 							boolean requestUpdate = false;
 
+							boolean isPremium = false;
+							JsonObject premiumJson = json.has("premium") ? json.get("premium").getAsJsonObject() : null;
+							if (premiumJson != null) {
+								if (premiumJson.has("price")) {
+									isPremium = true;
+									if (!resource.isPremium()) {
+										log.warn("SpigotMC says #" + resource.getId() + " is premium but DB says it's not!");
+									}
+									if(!resource.isPremium()||resource.getPrice() != premiumJson.get("price").getAsDouble() ||!resource.getCurrency().equals(premiumJson.get("currency").getAsString().toUpperCase())) {
+										updatePrice(resource.getId(), premiumJson.get("price").getAsDouble(), premiumJson.get("currency").getAsString().toUpperCase());
+									}
+								}
+							}
+
 							String version = json.get("current_version").getAsString();
 							if (version != null && resource.getVersion() != null) {
 								Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
 								String versionName = versionDocument.getString("name");
 								if (versionName != null && !version.equals(versionName)) {
-									log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\", requesting an update!");
-									requestUpdate = true;
+									log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
+									if(!isPremium) {
+										log.info("Requesting an update!");
+										requestUpdate = true;
+									}else{
+										//TODO
+									}
 								}
 							}
 
@@ -237,18 +256,8 @@ public class SpigetRestFetcher {
 
 								int updates = statsJson.get("updates").getAsInt();
 								if (updates > resource.getUpdates().size()) {
-									requestUpdate = true;
-								}
-							}
-
-							JsonObject premiumJson = json.has("premium") ? json.get("premium").getAsJsonObject() : null;
-							if (premiumJson != null) {
-								if (premiumJson.has("price")) {
-									if (!resource.isPremium()) {
-										log.warn("SpigotMC says #" + resource.getId() + " is premium but DB says it's not!");
-									}
-									if(!resource.isPremium()||resource.getPrice() != premiumJson.get("price").getAsDouble() ||!resource.getCurrency().equals(premiumJson.get("currency").getAsString().toUpperCase())) {
-										updatePrice(resource.getId(), premiumJson.get("price").getAsDouble(), premiumJson.get("currency").getAsString().toUpperCase());
+									if(!isPremium) {
+										requestUpdate = true;
 									}
 								}
 							}
