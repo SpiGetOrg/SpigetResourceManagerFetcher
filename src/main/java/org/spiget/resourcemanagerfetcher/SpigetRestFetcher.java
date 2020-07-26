@@ -15,14 +15,17 @@ import org.spiget.data.author.Author;
 import org.spiget.data.resource.Rating;
 import org.spiget.data.resource.Resource;
 import org.spiget.data.resource.SpigetIcon;
+import org.spiget.data.resource.version.ResourceVersion;
 import org.spiget.database.DatabaseClient;
 import org.spiget.database.DatabaseParser;
 import org.spiget.database.SpigetGson;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Log4j2
 public class SpigetRestFetcher {
@@ -218,22 +221,7 @@ public class SpigetRestFetcher {
                                 }
                             }
 
-                            //VERSION
-                            String version = json.get("current_version").getAsString();
-                            if (version != null && resource.getVersion() != null) {
-                                Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
-                                String versionName = versionDocument.getString("name");
-                                if (versionName != null && !version.equals(versionName)) {
-                                    log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
-                                    if (!isPremium) {
-                                        log.info("Requesting an update!");
-                                        requestUpdate = true;
-                                    } else {
-                                        //TODO
-                                    }
-                                }
-                            }
-
+                            int updateCount = -1;
                             JsonObject statsJson = json.get("stats").getAsJsonObject();
                             if (statsJson != null) {
                                 //DOWNLOADS
@@ -260,9 +248,31 @@ public class SpigetRestFetcher {
 
                                 //UPDATES
                                 int updates = statsJson.get("updates").getAsInt();
+                                updateCount = updates;
                                 if (updates > resource.getUpdates().size()) {
                                     if (!isPremium) {
                                         requestUpdate = true;
+                                    }
+                                }
+                            }
+
+                            //VERSION
+                            String version = json.get("current_version").getAsString();
+                            if (version != null && resource.getVersion() != null) {
+                                Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
+                                String versionName = versionDocument.getString("name");
+                                if (versionName != null) {
+                                    if(!version.equals(versionName)) {
+                                        log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
+                                        if (!isPremium) {
+                                            log.info("Requesting an update!");
+                                            requestUpdate = true;
+                                        } else {
+                                            //TODO
+                                        }
+                                    }else if(updateCount!=-1 && !versionDocument.containsKey("uuid")) {
+                                        log.info("Adding UUID to version " + version + " of #" + resource.getId());
+                                        addVersionUuid(resource.getId(), resource.getAuthor().getId(), version, updateCount,versionDocument.containsKey("releaseDate") ? new Date(((Number)versionDocument.get("releaseDate")).longValue()*1000) : new Date());
                                     }
                                 }
                             }
@@ -410,6 +420,12 @@ public class SpigetRestFetcher {
                         .append("price", price)
                         .append("currency", currency)
                         .append("fetch.restLatest", System.currentTimeMillis())));
+    }
+
+    void addVersionUuid(int resource, int author, String versionName, int updateCount, Date date) {
+        UUID uuid = ResourceVersion.makeUuid(resource, author, versionName,updateCount, date);
+        databaseClient.getResourceVersionsCollection().updateOne(new Document("resource", resource).append("name",versionName),
+                new Document("$set",new Document("uuid", uuid.toString())));
     }
 
     void updateUserName(int id, String name) {
