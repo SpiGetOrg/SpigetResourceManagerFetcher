@@ -189,12 +189,14 @@ public class SpigetRestFetcher {
 						} else {
 							JsonObject json = response.json.getAsJsonObject();
 
+							//TITLE
 							String title = json.get("title").getAsString();
 							if (resource.getName() != null && title != null && !resource.getName().equals(title)) {// name changed
 								log.info("Name of #" + resource.getId() + " changed  \"" + resource.getName() + "\" -> \"" + title + "\"");
 								updateName(resource.getId(), title);
 							}
 
+							//TAG
 							String tag = json.get("tag").getAsString();
 							if (resource.getTag() != null && tag != null && !resource.getTag().equals(tag)) {// tag changed
 								log.info("Tag of #" + resource.getId() + " changed  \"" + resource.getTag() + "\" -> \"" + tag + "\"");
@@ -203,6 +205,7 @@ public class SpigetRestFetcher {
 
 							boolean requestUpdate = false;
 
+							//PREMIUM STUFF
 							boolean isPremium = false;
 							JsonObject premiumJson = json.has("premium") ? json.get("premium").getAsJsonObject() : null;
 							if (premiumJson != null) {
@@ -217,6 +220,7 @@ public class SpigetRestFetcher {
 								}
 							}
 
+							//VERSION
 							String version = json.get("current_version").getAsString();
 							if (version != null && resource.getVersion() != null) {
 								Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
@@ -234,12 +238,14 @@ public class SpigetRestFetcher {
 
 							JsonObject statsJson = json.get("stats").getAsJsonObject();
 							if (statsJson != null) {
+								//DOWNLOADS
 								int downloads = statsJson.get("downloads").getAsInt();
 								if (resource.getDownloads() != downloads) {
 									log.info("Downloads of #" + resource.getId() + " changed  " + resource.getDownloads() + " -> " + downloads);
 									updateDownloads(resource.getId(), downloads);
 								}
 
+								//RATING
 								Rating rating = resource.getRating();
 								if (rating != null) {
 									int ratingCount = statsJson.get("reviews").getAsInt();
@@ -254,6 +260,7 @@ public class SpigetRestFetcher {
 									}
 								}
 
+								//UPDATES
 								int updates = statsJson.get("updates").getAsInt();
 								if (updates > resource.getUpdates().size()) {
 									if(!isPremium) {
