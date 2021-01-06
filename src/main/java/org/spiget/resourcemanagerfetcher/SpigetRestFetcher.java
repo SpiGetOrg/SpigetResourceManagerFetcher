@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mongodb.client.FindIterable;
+import io.sentry.Sentry;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
@@ -40,6 +41,10 @@ public class SpigetRestFetcher {
 
     @Nullable
     public SpigetRestFetcher init() throws IOException {
+        Sentry.init(options -> {
+            options.setEnableExternalConfiguration(true);
+        });
+
         config = new JsonParser().parse(new FileReader("config.json")).getAsJsonObject();
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -49,6 +54,7 @@ public class SpigetRestFetcher {
                     log.info("Disconnecting database...");
                     databaseClient.disconnect();
                 } catch (IOException e) {
+                    Sentry.captureException(e);
                     log.warn("Failed to disconnect from database", e);
                 }
             }
@@ -69,6 +75,7 @@ public class SpigetRestFetcher {
                 databaseClient.collectionCount();
                 log.info("Connection successful (" + (System.currentTimeMillis() - testStart) + "ms)");
             } catch (Exception e) {
+                Sentry.captureException(e);
                 log.fatal("Connection failed after " + (System.currentTimeMillis() - testStart) + "ms", e);
                 log.fatal("Aborting.");
 
@@ -98,6 +105,7 @@ public class SpigetRestFetcher {
                     return null;
                 }
             } catch (Exception e) {
+                Sentry.captureException(e);
                 log.fatal("Connection failed after " + (System.currentTimeMillis() - testStart) + "ms", e);
                 log.fatal("Aborting.");
 
@@ -122,6 +130,7 @@ public class SpigetRestFetcher {
             databaseClient.updateStatus("fetch.rest.lastEnd", lastEnd.longValue());
             databaseClient.updateStatus("fetch.rest.end", 0);
         } catch (Exception e) {
+            Sentry.captureException(e);
             log.log(Level.ERROR, "Failed to update status", e);
         }
 
@@ -136,6 +145,7 @@ public class SpigetRestFetcher {
             databaseClient.updateStatus("fetch.rest.end", endTime);
             databaseClient.updateStatus("fetch.rest.duration", (endTime - startTime));
         } catch (Exception e) {
+            Sentry.captureException(e);
             e.printStackTrace();
         }
 
@@ -169,6 +179,7 @@ public class SpigetRestFetcher {
                     try {
                         Thread.sleep(delay);
                     } catch (InterruptedException e) {
+                        Sentry.captureException(e);
                         e.printStackTrace();
                     }
                     Resource resource = SpigetGson.RESOURCE.fromJson(DatabaseParser.toJson(document), Resource.class);
@@ -286,6 +297,7 @@ public class SpigetRestFetcher {
                         }
                     }
                 } catch (Exception e) {
+                    Sentry.captureException(e);
                     log.log(Level.WARN, "Exception while trying to check resource", e);
                 }
             }
@@ -307,6 +319,7 @@ public class SpigetRestFetcher {
                     try {
                         Thread.sleep(delay);
                     } catch (InterruptedException e) {
+                        Sentry.captureException(e);
                         e.printStackTrace();
                     }
                     Author author = SpigetGson.AUTHOR.fromJson(DatabaseParser.toJson(document), Author.class);
@@ -369,6 +382,7 @@ public class SpigetRestFetcher {
                         }
                     }
                 } catch (Exception e) {
+                    Sentry.captureException(e);
                     log.log(Level.WARN, "Exception while trying to check resource", e);
                 }
             }
@@ -378,11 +392,13 @@ public class SpigetRestFetcher {
                 databaseClient.updateStatus("fetch.rest.n.end", updateEnd);
                 databaseClient.updateStatus("fetch.rest.n.duration", (updateEnd - updateStart));
             } catch (Exception e) {
+                Sentry.captureException(e);
                 log.log(Level.ERROR, "Failed to update status", e);
             }
 
             log.log(Level.INFO, "Finished fetch #" + n + ". Took " + (((double) updateEnd - updateStart) / 1000.0 / 60.0) + " minutes to update " + c + " resources.");
         } catch (Exception e) {
+            Sentry.captureException(e);
             log.log(Level.ERROR, "Exception in fetch #" + n, e);
         }
 
