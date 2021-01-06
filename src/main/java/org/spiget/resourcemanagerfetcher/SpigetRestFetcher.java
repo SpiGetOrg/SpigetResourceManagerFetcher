@@ -247,13 +247,14 @@ public class SpigetRestFetcher {
                                 }
 
                                 //UPDATES
-                                int updates = statsJson.get("updates").getAsInt();
-                                updateCount = updates;
-                                if (updates > resource.getUpdates().size()) {
-                                    if (!isPremium) {
-                                        requestUpdate = true;
-                                    }
-                                }
+                                // this might not ever change for some resources, since the main fetcher only updates the first few pages of resource updates
+//                                int updates = statsJson.get("updates").getAsInt();
+//                                updateCount = updates;
+//                                if (updates > resource.getUpdates().size()) {
+//                                    if (!isPremium) {
+//                                        requestUpdate = true;
+//                                    }
+//                                }
                             }
 
                             //VERSION
