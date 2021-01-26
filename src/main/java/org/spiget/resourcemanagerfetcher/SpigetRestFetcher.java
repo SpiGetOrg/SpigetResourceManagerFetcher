@@ -272,19 +272,21 @@ public class SpigetRestFetcher {
                             String version = json.get("current_version").getAsString();
                             if (version != null && resource.getVersion() != null) {
                                 Document versionDocument = databaseClient.getResourceVersionsCollection().find(new Document("_id", resource.getVersion().id)).limit(1).first();
-                                String versionName = versionDocument.getString("name");
-                                if (versionName != null) {
-                                    if(!version.equals(versionName)) {
-                                        log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
-                                        if (!isPremium) {
-                                            log.info("Requesting an update!");
-                                            requestUpdate = true;
-                                        } else {
-                                            //TODO
+                                if (versionDocument != null) {
+                                    String versionName = versionDocument.getString("name");
+                                    if (versionName != null) {
+                                        if (!version.equals(versionName)) {
+                                            log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
+                                            if (!isPremium) {
+                                                log.info("Requesting an update!");
+                                                requestUpdate = true;
+                                            } else {
+                                                //TODO
+                                            }
+                                        } else if (updateCount != -1 && !versionDocument.containsKey("uuid")) {
+                                            log.info("Adding UUID to version " + version + " of #" + resource.getId());
+                                            addVersionUuid(resource.getId(), resource.getAuthor().getId(), version, updateCount, versionDocument.containsKey("releaseDate") ? new Date(((Number) versionDocument.get("releaseDate")).longValue() * 1000) : new Date());
                                         }
-                                    }else if(updateCount!=-1 && !versionDocument.containsKey("uuid")) {
-                                        log.info("Adding UUID to version " + version + " of #" + resource.getId());
-                                        addVersionUuid(resource.getId(), resource.getAuthor().getId(), version, updateCount,versionDocument.containsKey("releaseDate") ? new Date(((Number)versionDocument.get("releaseDate")).longValue()*1000) : new Date());
                                     }
                                 }
                             }
