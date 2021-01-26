@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
 import org.jetbrains.annotations.Nullable;
+import org.spiget.client.SpigetClient;
 import org.spiget.client.json.JsonClient;
 import org.spiget.client.json.JsonResponse;
 import org.spiget.data.UpdateRequest;
@@ -35,6 +36,8 @@ public class SpigetRestFetcher {
 
     public static DatabaseClient databaseClient;
 
+    static SpigetMetrics metrics;
+
     int  itemsPerFetch = 500;
     long delay         = 1000;
     int  start         = 0;
@@ -59,6 +62,10 @@ public class SpigetRestFetcher {
                 }
             }
         });
+
+        metrics = new SpigetMetrics(config);
+        SpigetClient.metrics = metrics.metrics;
+        SpigetClient.project = "rest-fetcher";
 
         {
             log.info("Initializing & testing database connection...");
