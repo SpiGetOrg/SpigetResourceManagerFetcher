@@ -8,6 +8,8 @@ import io.sentry.Sentry;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
+import org.inventivetalent.metrics.IntervalFlusher;
+import org.inventivetalent.metrics.Metric;
 import org.jetbrains.annotations.Nullable;
 import org.spiget.client.SpigetClient;
 import org.spiget.client.json.JsonClient;
@@ -28,6 +30,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class SpigetRestFetcher {
@@ -41,6 +44,8 @@ public class SpigetRestFetcher {
     int  itemsPerFetch = 500;
     long delay         = 1000;
     int  start         = 0;
+
+    static Metric UPDATE_REQUEST_METRIC;
 
     @Nullable
     public SpigetRestFetcher init() throws IOException {
@@ -64,8 +69,12 @@ public class SpigetRestFetcher {
         });
 
         metrics = new SpigetMetrics(config);
+        metrics.metrics.setFlusher(new IntervalFlusher(metrics.metrics, 1, TimeUnit.MINUTES));
+
         SpigetClient.metrics = metrics.metrics;
         SpigetClient.project = "rest-fetcher";
+
+        UPDATE_REQUEST_METRIC = metrics.metrics.metric("spiget", "update_requests");
 
         {
             log.info("Initializing & testing database connection...");
@@ -222,7 +231,7 @@ public class SpigetRestFetcher {
                                 updateTag(resource.getId(), tag);
                             }
 
-                            boolean requestUpdate = false;
+                            String requestUpdate = null;
 
                             //PREMIUM STUFF
                             boolean isPremium = false;
@@ -255,7 +264,7 @@ public class SpigetRestFetcher {
                                     int ratingCount = statsJson.get("reviews").getAsInt();
                                     float ratingAvg = statsJson.get("rating").getAsFloat();
                                     if (ratingCount > rating.getCount()) {
-                                        //									requestUpdate = true;
+                                        requestUpdate = "moreRatings";
                                         updateRatingCount(resource.getId(), ratingCount);
                                     }
                                     if (ratingAvg != rating.getAverage()) {
@@ -284,12 +293,13 @@ public class SpigetRestFetcher {
                                     if (versionName != null) {
                                         if (!version.equals(versionName)) {
                                             log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
-                                            if (!isPremium) {
-                                                log.info("Requesting an update!");
-                                                requestUpdate = true;
-                                            } else {
-                                                //TODO
-                                            }
+                                            requestUpdate = "versionChange";
+//                                            if (!isPremium) {
+//                                                log.info("Requesting an update!");
+//                                                requestUpdate = "versionChange";
+//                                            } else {
+//                                                //TODO
+//                                            }
                                         } else if (updateCount != -1 && !versionDocument.containsKey("uuid")) {
                                             log.info("Adding UUID to version " + version + " of #" + resource.getId());
                                             addVersionUuid(resource.getId(), resource.getAuthor().getId(), version, updateCount, versionDocument.containsKey("releaseDate") ? new Date(((Number) versionDocument.get("releaseDate")).longValue() * 1000) : new Date());
@@ -298,9 +308,16 @@ public class SpigetRestFetcher {
                                 }
                             }
 
-                            if (requestUpdate) {
+                            if (requestUpdate!=null) {
                                 log.info("Requesting update for #" + resource.getId());
                                 requestUpdate(resource.getId(), "resource", false);
+                                try {
+                                    UPDATE_REQUEST_METRIC
+                                            .tag("reason", requestUpdate)
+                                            .inc();
+                                } catch (Exception e) {
+                                    Sentry.captureException(e);
+                                }
                             }
 
                         }
