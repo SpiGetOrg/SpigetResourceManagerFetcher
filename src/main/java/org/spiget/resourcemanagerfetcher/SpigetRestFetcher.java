@@ -9,7 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
 import org.influxdb.dto.Point;
-import org.inventivetalent.metrics.IntervalFlusher;
 import org.inventivetalent.metrics.Metric;
 import org.jetbrains.annotations.Nullable;
 import org.spiget.client.SpigetClient;
@@ -31,7 +30,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class SpigetRestFetcher {
@@ -70,7 +68,6 @@ public class SpigetRestFetcher {
         });
 
         metrics = new SpigetMetrics(config);
-        metrics.metrics.setFlusher(new IntervalFlusher(metrics.metrics, 1, TimeUnit.MINUTES));
 
         SpigetClient.metrics = metrics.metrics;
         SpigetClient.project = "rest-fetcher";
