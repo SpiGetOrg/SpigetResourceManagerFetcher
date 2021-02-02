@@ -8,6 +8,7 @@ import io.sentry.Sentry;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
 import org.bson.Document;
+import org.influxdb.dto.Point;
 import org.inventivetalent.metrics.IntervalFlusher;
 import org.inventivetalent.metrics.Metric;
 import org.jetbrains.annotations.Nullable;
@@ -163,6 +164,15 @@ public class SpigetRestFetcher {
         } catch (Exception e) {
             Sentry.captureException(e);
             e.printStackTrace();
+        }
+
+        try {
+            metrics.metrics.getInflux().write(Point
+                    .measurement("rest_fetch_duration")
+                    .addField("duration", (endTime - startTime))
+                    .build());
+        } catch (Exception e) {
+            Sentry.captureException(e);
         }
 
         log.log(Level.INFO, "Finished. Took " + (((double) endTime - startTime) / 1000.0 / 60.0) + " minutes total.");
