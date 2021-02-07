@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mongodb.client.FindIterable;
+import com.mongodb.client.model.Filters;
 import io.sentry.Sentry;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.Level;
@@ -40,9 +41,12 @@ public class SpigetRestFetcher {
 
     static SpigetMetrics metrics;
 
-    int  itemsPerFetch = 500;
-    long delay         = 1000;
-    int  start         = 0;
+    int itemsPerFetch = 500;
+    long delay = 1000;
+    int start = 0;
+
+    long startTime;
+    long endTime;
 
     static Metric UPDATE_REQUEST_METRIC;
 
@@ -136,7 +140,7 @@ public class SpigetRestFetcher {
     }
 
     public void fetch() {
-        long startTime = System.currentTimeMillis();
+        startTime = System.currentTimeMillis();
 
         try {
             databaseClient.updateStatus("fetch.rest.start", startTime);
@@ -154,7 +158,7 @@ public class SpigetRestFetcher {
             n++;
         }
 
-        long endTime = System.currentTimeMillis();
+        endTime = System.currentTimeMillis();
         try {
             databaseClient.updateStatus("fetch.rest.end", endTime);
             databaseClient.updateStatus("fetch.rest.duration", (endTime - startTime));
@@ -186,7 +190,10 @@ public class SpigetRestFetcher {
 
             //// RESOURCES
 
-            FindIterable<Document> iterable = databaseClient.getResourcesCollection().find().sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+            FindIterable<Document> iterable = databaseClient.getResourcesCollection().find(Filters.or(
+                    Filters.exists("fetch.restLatest", false),
+                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+                    )).sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
             long updateStart = System.currentTimeMillis();
 
             databaseClient.updateStatus("fetch.rest.n.start", updateStart);
@@ -282,13 +289,13 @@ public class SpigetRestFetcher {
 
                                 //UPDATES
                                 // this might not ever change for some resources, since the main fetcher only updates the first few pages of resource updates
-//                                int updates = statsJson.get("updates").getAsInt();
-//                                updateCount = updates;
-//                                if (updates > resource.getUpdates().size()) {
-//                                    if (!isPremium) {
-//                                        requestUpdate = true;
-//                                    }
-//                                }
+                                //                                int updates = statsJson.get("updates").getAsInt();
+                                //                                updateCount = updates;
+                                //                                if (updates > resource.getUpdates().size()) {
+                                //                                    if (!isPremium) {
+                                //                                        requestUpdate = true;
+                                //                                    }
+                                //                                }
                             }
 
                             //VERSION
@@ -301,12 +308,12 @@ public class SpigetRestFetcher {
                                         if (!version.equals(versionName)) {
                                             log.info("Version of #" + resource.getId() + " changed  \"" + versionName + "\" -> \"" + version + "\"");
                                             requestUpdate = "versionChange";
-//                                            if (!isPremium) {
-//                                                log.info("Requesting an update!");
-//                                                requestUpdate = "versionChange";
-//                                            } else {
-//                                                //TODO
-//                                            }
+                                            //                                            if (!isPremium) {
+                                            //                                                log.info("Requesting an update!");
+                                            //                                                requestUpdate = "versionChange";
+                                            //                                            } else {
+                                            //                                                //TODO
+                                            //                                            }
                                         } else if (updateCount != -1 && !versionDocument.containsKey("uuid")) {
                                             log.info("Adding UUID to version " + version + " of #" + resource.getId());
                                             addVersionUuid(resource.getId(), resource.getAuthor().getId(), version, updateCount, versionDocument.containsKey("releaseDate") ? new Date(((Number) versionDocument.get("releaseDate")).longValue() * 1000) : new Date());
@@ -315,7 +322,7 @@ public class SpigetRestFetcher {
                                 }
                             }
 
-                            if (requestUpdate!=null) {
+                            if (requestUpdate != null) {
                                 log.info("Requesting update for #" + resource.getId());
                                 requestUpdate(resource.getId(), "resource", false);
                                 try {
@@ -339,7 +346,10 @@ public class SpigetRestFetcher {
 
             databaseClient.updateStatus("fetch.rest.type", "author");
 
-            iterable = databaseClient.getAuthorsCollection().find().sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+            iterable = databaseClient.getAuthorsCollection().find(Filters.or(
+                    Filters.exists("fetch.restLatest", false),
+                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+            )).sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 
             for (Document document : iterable) {
                 c++;
@@ -473,9 +483,9 @@ public class SpigetRestFetcher {
     }
 
     void addVersionUuid(int resource, int author, String versionName, int updateCount, Date date) {
-        UUID uuid = ResourceVersion.makeUuid(resource, author, versionName,updateCount, date);
-        databaseClient.getResourceVersionsCollection().updateOne(new Document("resource", resource).append("name",versionName),
-                new Document("$set",new Document("uuid", uuid.toString())));
+        UUID uuid = ResourceVersion.makeUuid(resource, author, versionName, updateCount, date);
+        databaseClient.getResourceVersionsCollection().updateOne(new Document("resource", resource).append("name", versionName),
+                new Document("$set", new Document("uuid", uuid.toString())));
     }
 
     void updateUserName(int id, String name) {
