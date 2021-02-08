@@ -190,10 +190,18 @@ public class SpigetRestFetcher {
 
             //// RESOURCES
 
-            FindIterable<Document> iterable = databaseClient.getResourcesCollection().find(Filters.or(
-                    Filters.exists("fetch.restLatest", false),
-                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
-                    )).sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+            FindIterable<Document> iterable = databaseClient.getResourcesCollection().find(
+                    Filters.and(
+                            Filters.or(
+                                    Filters.exists("fetch.restLatest", false),
+                                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+                            ),
+                            Filters.or(
+                                    Filters.exists("fetch.latest", false),
+                                    Filters.lt("fetch.latest", startTime-8.64e+7/*24h*/)
+                            )
+                    )
+            ).sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
             long updateStart = System.currentTimeMillis();
 
             databaseClient.updateStatus("fetch.rest.n.start", updateStart);
@@ -346,10 +354,18 @@ public class SpigetRestFetcher {
 
             databaseClient.updateStatus("fetch.rest.type", "author");
 
-            iterable = databaseClient.getAuthorsCollection().find(Filters.or(
-                    Filters.exists("fetch.restLatest", false),
-                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
-            )).sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
+            iterable = databaseClient.getAuthorsCollection().find(
+                    Filters.and(
+                            Filters.or(
+                                    Filters.exists("fetch.restLatest", false),
+                                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+                            ),
+                            Filters.or(
+                                    Filters.exists("fetch.latest", false),
+                                    Filters.lt("fetch.latest", startTime-8.64e+7/*24h*/)
+                            )
+                    )
+            ).sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
 
             for (Document document : iterable) {
                 c++;
