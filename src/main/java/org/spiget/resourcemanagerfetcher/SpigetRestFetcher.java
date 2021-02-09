@@ -238,12 +238,14 @@ public class SpigetRestFetcher {
                             log.warn(response.json);
                         } else {
                             JsonObject json = response.json.getAsJsonObject();
+                            boolean modifiedDb = false;
 
                             //TITLE
                             String title = json.get("title").getAsString();
                             if (resource.getName() != null && title != null && !resource.getName().equals(title)) {// name changed
                                 log.info("Name of #" + resource.getId() + " changed  \"" + resource.getName() + "\" -> \"" + title + "\"");
                                 updateName(resource.getId(), title);
+                                modifiedDb = true;
                             }
 
                             //TAG
@@ -251,6 +253,7 @@ public class SpigetRestFetcher {
                             if (resource.getTag() != null && tag != null && !resource.getTag().equals(tag)) {// tag changed
                                 log.info("Tag of #" + resource.getId() + " changed  \"" + resource.getTag() + "\" -> \"" + tag + "\"");
                                 updateTag(resource.getId(), tag);
+                                modifiedDb = true;
                             }
 
                             String requestUpdate = null;
@@ -266,6 +269,7 @@ public class SpigetRestFetcher {
                                     }
                                     if (!resource.isPremium() || resource.getPrice() != premiumJson.get("price").getAsDouble() || !resource.getCurrency().equals(premiumJson.get("currency").getAsString().toUpperCase())) {
                                         updatePrice(resource.getId(), premiumJson.get("price").getAsDouble(), premiumJson.get("currency").getAsString().toUpperCase());
+                                        modifiedDb = true;
                                     }
                                 }
                             }
@@ -278,6 +282,7 @@ public class SpigetRestFetcher {
                                 if (resource.getDownloads() != downloads) {
                                     log.info("Downloads of #" + resource.getId() + " changed  " + resource.getDownloads() + " -> " + downloads);
                                     updateDownloads(resource.getId(), downloads);
+                                    modifiedDb = true;
                                 }
 
                                 //RATING
@@ -288,10 +293,12 @@ public class SpigetRestFetcher {
                                     if (ratingCount > rating.getCount()) {
                                         requestUpdate = "moreRatings";
                                         updateRatingCount(resource.getId(), ratingCount);
+                                        modifiedDb = true;
                                     }
                                     if (ratingAvg != rating.getAverage()) {
                                         //									requestUpdate = true;
                                         updateRatingAvg(resource.getId(), ratingAvg);
+                                        modifiedDb = true;
                                     }
                                 }
 
@@ -328,6 +335,10 @@ public class SpigetRestFetcher {
                                         }
                                     }
                                 }
+                            }
+
+                            if (!modifiedDb) {
+                                setResourceUpdateTimestamp(resource.getId());
                             }
 
                             if (requestUpdate != null) {
@@ -400,11 +411,13 @@ public class SpigetRestFetcher {
                             log.warn(response.json);
                         } else {
                             JsonObject json = response.json.getAsJsonObject();
+                            boolean modifiedDb = false;
 
                             String username = json.get("username").getAsString();
                             if (author.getName() != null && username != null && !author.getName().equals(username)) {// name changed
                                 log.info("Username of #" + author.getId() + " changed  \"" + author.getName() + "\" -> \"" + username + "\"");
                                 updateUserName(author.getId(), username);
+                                modifiedDb = true;
                             }
 
                             JsonElement identitiesEl = json.get("identities");
@@ -427,6 +440,7 @@ public class SpigetRestFetcher {
                                     if (changed) {
                                         //noinspection unchecked
                                         updateIdentities(author.getId(), identityMap);
+                                        modifiedDb = true;
                                     }
                                 }
                             }
@@ -436,7 +450,12 @@ public class SpigetRestFetcher {
                                 SpigetIcon icon = author.getIcon();
                                 if ((avatar.get("info") != null && !avatar.get("info").getAsString().equals(icon.getInfo())) || (avatar.get("hash") != null && !avatar.get("hash").getAsString().equals(icon.getHash()))) {
                                     updateAvatar(author.getId(), avatar.get("info").getAsString(), avatar.get("hash").getAsString());
+                                    modifiedDb = true;
                                 }
+                            }
+
+                            if (!modifiedDb) {
+                                setAuthorUpdateTimestamp(author.getId());
                             }
                         }
                     }
@@ -518,6 +537,14 @@ public class SpigetRestFetcher {
 
     void deleteAuthor(int id) {
         databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("shouldDelete", true)));
+    }
+
+    void setResourceUpdateTimestamp(int id) {
+        databaseClient.getResourcesCollection().updateOne(new Document("_id", id), new Document("$set", new Document("fetch.restLatest", System.currentTimeMillis())));
+    }
+
+    void setAuthorUpdateTimestamp(int id) {
+        databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("fetch.restLatest", System.currentTimeMillis())));
     }
 
     void requestUpdate(int id) {
