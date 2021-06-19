@@ -82,13 +82,17 @@ public class SpigetRestFetcher {
             log.info("Initializing & testing database connection...");
             long testStart = System.currentTimeMillis();
             try {
-                databaseClient = new DatabaseClient(
-                        config.get("database.name").getAsString(),
-                        config.get("database.host").getAsString(),
-                        config.get("database.port").getAsInt(),
-                        config.get("database.user").getAsString(),
-                        config.get("database.pass").getAsString().toCharArray(),
-                        config.get("database.db").getAsString());
+                if (config.has("database.url")) {
+                    databaseClient = new DatabaseClient(config.get("database.url").getAsString());
+                } else {
+                    databaseClient = new DatabaseClient(
+                            config.get("database.name").getAsString(),
+                            config.get("database.host").getAsString(),
+                            config.get("database.port").getAsInt(),
+                            config.get("database.user").getAsString(),
+                            config.get("database.pass").getAsString().toCharArray(),
+                            config.get("database.db").getAsString());
+                }
                 databaseClient.connect(config.get("database.timeout").getAsInt());
                 databaseClient.collectionCount();
                 log.info("Connection successful (" + (System.currentTimeMillis() - testStart) + "ms)");
