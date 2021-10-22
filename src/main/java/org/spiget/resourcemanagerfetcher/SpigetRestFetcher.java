@@ -83,7 +83,7 @@ public class SpigetRestFetcher {
             long testStart = System.currentTimeMillis();
             try {
                 if (config.has("database.url")) {
-                    databaseClient = new DatabaseClient(config.get("database.url").getAsString());
+                    databaseClient = new DatabaseClient(config.get("database.url").getAsString(), config.get("database.name").getAsString());
                 } else {
                     databaseClient = new DatabaseClient(
                             config.get("database.name").getAsString(),
@@ -114,7 +114,7 @@ public class SpigetRestFetcher {
             long testStart = System.currentTimeMillis();
             try {
                 JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getResource&id=2");
-                if (response == null) { return null; }
+                if (response == null) {return null;}
                 int code = response.code;
                 if (code >= 200 && code < 400) {
                     log.info("Connection successful (" + (System.currentTimeMillis() - testStart) + "ms)");
@@ -198,11 +198,11 @@ public class SpigetRestFetcher {
                     Filters.and(
                             Filters.or(
                                     Filters.exists("fetch.restLatest", false),
-                                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+                                    Filters.lt("fetch.restLatest", startTime - 8.64e+7/*24h*/)
                             ),
                             Filters.or(
                                     Filters.exists("fetch.latest", false),
-                                    Filters.lt("fetch.latest", startTime-8.64e+7/*24h*/)
+                                    Filters.lt("fetch.latest", startTime - 8.64e+7/*24h*/)
                             )
                     )
             ).sort(new Document("updateDate", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
@@ -225,8 +225,8 @@ public class SpigetRestFetcher {
                         e.printStackTrace();
                     }
                     Resource resource = SpigetGson.RESOURCE.fromJson(DatabaseParser.toJson(document), Resource.class);
-                    JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getResource&id=" + resource.getId());
-                    if (response == null) { continue; }
+                    JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.2/index.php?action=getResource&id=" + resource.getId());
+                    if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getResource #" + resource.getId());
                         if (response.code == 503) {// Cloudflare
@@ -292,7 +292,13 @@ public class SpigetRestFetcher {
                                 //RATING
                                 Rating rating = resource.getRating();
                                 if (rating != null) {
-                                    int ratingCount = statsJson.get("reviews").getAsInt();
+                                    JsonElement reviewsJson = statsJson.get("reviews");
+                                    int ratingCount;
+                                    if (reviewsJson.isJsonObject()) {
+                                        ratingCount = reviewsJson.getAsJsonObject().get("total").getAsInt();
+                                    } else {
+                                        ratingCount = reviewsJson.getAsInt();
+                                    }
                                     float ratingAvg = statsJson.get("rating").getAsFloat();
                                     if (ratingCount > rating.getCount()) {
                                         requestUpdate = "moreRatings";
@@ -373,11 +379,11 @@ public class SpigetRestFetcher {
                     Filters.and(
                             Filters.or(
                                     Filters.exists("fetch.restLatest", false),
-                                    Filters.lt("fetch.restLatest", startTime-8.64e+7/*24h*/)
+                                    Filters.lt("fetch.restLatest", startTime - 8.64e+7/*24h*/)
                             ),
                             Filters.or(
                                     Filters.exists("fetch.latest", false),
-                                    Filters.lt("fetch.latest", startTime-8.64e+7/*24h*/)
+                                    Filters.lt("fetch.latest", startTime - 8.64e+7/*24h*/)
                             )
                     )
             ).sort(new Document("_id", 1)).limit(itemsPerFetch).skip(n * itemsPerFetch);
@@ -397,8 +403,8 @@ public class SpigetRestFetcher {
                         e.printStackTrace();
                     }
                     Author author = SpigetGson.AUTHOR.fromJson(DatabaseParser.toJson(document), Author.class);
-                    JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.1/index.php?action=getAuthor&id=" + author.getId());
-                    if (response == null) { continue; }
+                    JsonResponse response = JsonClient.get("https://api.spigotmc.org/simple/0.2/index.php?action=getAuthor&id=" + author.getId());
+                    if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
                         if (response.code == 503) {// Cloudflare
