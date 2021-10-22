@@ -27,10 +27,7 @@ import org.spiget.database.SpigetGson;
 
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Log4j2
 public class SpigetRestFetcher {
@@ -455,11 +452,20 @@ public class SpigetRestFetcher {
                                 }
                             }
 
-                            JsonObject avatar = json.get("avatar").getAsJsonObject();
-                            if (avatar != null && author.getIcon() != null) {
+                            JsonElement avatarJson = json.get("avatar");
+                            if (avatarJson != null && author.getIcon() != null) {
                                 SpigetIcon icon = author.getIcon();
-                                if ((avatar.get("info") != null && !avatar.get("info").getAsString().equals(icon.getInfo())) || (avatar.get("hash") != null && !avatar.get("hash").getAsString().equals(icon.getHash()))) {
-                                    updateAvatar(author.getId(), avatar.get("info").getAsString(), avatar.get("hash").getAsString());
+                                if(avatarJson.isJsonObject()) {
+                                    JsonObject avatar = avatarJson.getAsJsonObject();
+                                    if ((avatar.get("info") != null && !avatar.get("info").getAsString().equals(icon.getInfo())) || (avatar.get("hash") != null && !avatar.get("hash").getAsString().equals(icon.getHash()))) {
+                                        updateAvatar(author.getId(), avatar.get("info").getAsString(), avatar.get("hash").getAsString());
+                                        modifiedDb = true;
+                                    }
+                                } else if (avatarJson.isJsonPrimitive()) {
+                                    String avatar =avatarJson.getAsString();
+                                    if (!Objects.equals(avatar, icon.getUrl())) {
+                                        updateAvatar(author.getId(), avatar);
+                                    }
                                     modifiedDb = true;
                                 }
                             }
@@ -543,6 +549,10 @@ public class SpigetRestFetcher {
 
     void updateAvatar(int id, String info, String hash) {
         databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("icon.info", info).append("icon.hash", hash).append("fetch.restLatest", System.currentTimeMillis())));
+    }
+
+    void updateAvatar(int id, String url) {
+        databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("icon.url", url).append("fetch.restLatest", System.currentTimeMillis())));
     }
 
     void deleteAuthor(int id) {
