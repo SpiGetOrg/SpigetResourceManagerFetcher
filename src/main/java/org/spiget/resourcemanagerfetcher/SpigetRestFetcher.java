@@ -299,6 +299,7 @@ public class SpigetRestFetcher {
                                     float ratingAvg = statsJson.get("rating").getAsFloat();
                                     if (ratingCount > rating.getCount()) {
                                         requestUpdate = "moreRatings";
+                                        log.info("Ratings of #" + resource.getId() + " changed  " + rating.getCount() + " -> " + ratingCount);
                                         updateRatingCount(resource.getId(), ratingCount);
                                         modifiedDb = true;
                                     }
