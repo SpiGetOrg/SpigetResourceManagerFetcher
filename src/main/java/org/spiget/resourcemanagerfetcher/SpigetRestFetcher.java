@@ -42,6 +42,10 @@ public class SpigetRestFetcher {
     long delay = 1000;
     int start = 0;
 
+    static final long MIN_BACKOFF = 5000;
+    static final long MAX_BACKOFF = 5 * 60 * 1000;
+    long backoff = 0;
+
     long startTime;
     long endTime;
 
@@ -226,7 +230,8 @@ public class SpigetRestFetcher {
                     if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getResource #" + resource.getId());
-                        if (response.code == 503) {// Cloudflare
+                        if (response.code == 429 || response.code == 503) {// Rate limited / Cloudflare
+                            backOff(response.code);
                         } else if (response.code == 404) {// Resource not found
                             log.info("Scheduling #" + resource.getId() + " for deletion");
                             requestUpdate(resource.getId(), "resource", true);
@@ -234,7 +239,8 @@ public class SpigetRestFetcher {
                             log.error("Unexpected status code");
                         }
                     } else {
-                        if (!response.json.isJsonObject()) {
+                        backoff = 0;
+                        if (response.json == null || !response.json.isJsonObject()) {
                             log.warn("Expected response to be a json object but was not.");
                             log.warn(response.json);
                         } else {
@@ -405,7 +411,8 @@ public class SpigetRestFetcher {
                     if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
-                        if (response.code == 503) {// Cloudflare
+                        if (response.code == 429 || response.code == 503) {// Rate limited / Cloudflare
+                            backOff(response.code);
                         } else if (response.code == 404) {// Author not found
                             log.info("Scheduling #" + author.getId() + " for deletion");
                             requestUpdate(author.getId(), "author", true);
@@ -414,7 +421,8 @@ public class SpigetRestFetcher {
                             log.error("Unexpected status code");
                         }
                     } else {
-                        if (!response.json.isJsonObject()) {
+                        backoff = 0;
+                        if (response.json == null || !response.json.isJsonObject()) {
                             log.warn("Expected response to be a json object but was not.");
                             log.warn(response.json);
                         } else {
@@ -566,6 +574,17 @@ public class SpigetRestFetcher {
 
     void setAuthorUpdateTimestamp(int id) {
         databaseClient.getAuthorsCollection().updateOne(new Document("_id", id), new Document("$set", new Document("fetch.restLatest", System.currentTimeMillis())));
+    }
+
+    void backOff(int code) {
+        backoff = backoff == 0 ? MIN_BACKOFF : Math.min(backoff * 2, MAX_BACKOFF);
+        log.warn("Got Code " + code + ", backing off for " + backoff + "ms");
+        try {
+            Thread.sleep(backoff);
+        } catch (InterruptedException e) {
+            Sentry.captureException(e);
+            e.printStackTrace();
+        }
     }
 
     void requestUpdate(int id) {

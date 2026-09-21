@@ -4,7 +4,10 @@ public class Main {
 
 	public static void main(String...args) throws Exception {
 		SpigetRestFetcher fetcher = new SpigetRestFetcher();
-		fetcher.init();
+		if (fetcher.init() == null) {
+			System.exit(-1);
+			return;
+		}
 		fetcher.fetch();
 	}
 
