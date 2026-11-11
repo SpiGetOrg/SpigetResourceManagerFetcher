@@ -3,6 +3,8 @@ package org.spiget.resourcemanagerfetcher;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mongodb.ErrorCategory;
+import com.mongodb.MongoWriteException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.model.Filters;
 import io.sentry.Sentry;
@@ -45,6 +47,14 @@ public class SpigetRestFetcher {
     static final long MIN_BACKOFF = 5000;
     static final long MAX_BACKOFF = 5 * 60 * 1000;
     long backoff = 0;
+
+    // Stop the run after this many bad responses (anything but 200 or 404) in
+    // a row. With the backoff above that is ~20 minutes of waiting, so a block
+    // like Cloudflare's 403 ends the run with one error instead of one per item.
+    static final int MAX_CONSECUTIVE_FAILURES = 10;
+    int consecutiveFailures = 0;
+    int lastFailureCode = 0;
+    boolean aborted = false;
 
     long startTime;
     long endTime;
@@ -159,8 +169,11 @@ public class SpigetRestFetcher {
 
         int n = start;
         int c = 0;
-        while ((c = fetchN(n)) >= itemsPerFetch) {
+        while ((c = fetchN(n)) >= itemsPerFetch && !aborted) {
             n++;
+        }
+        if (aborted) {
+            log.error("Stopped REST fetch after " + consecutiveFailures + " bad responses in a row from api.spigotmc.org (last: HTTP " + lastFailureCode + ")");
         }
 
         endTime = System.currentTimeMillis();
@@ -230,16 +243,16 @@ public class SpigetRestFetcher {
                     if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getResource #" + resource.getId());
-                        if (response.code == 429 || response.code == 503) {// Rate limited / Cloudflare
-                            backOff(response.code);
-                        } else if (response.code == 404) {// Resource not found
+                        if (response.code == 404) {// Resource not found
+                            consecutiveFailures = 0;
                             log.info("Scheduling #" + resource.getId() + " for deletion");
                             requestUpdate(resource.getId(), "resource", true);
-                        } else {
-                            log.error("Unexpected status code");
+                        } else if (handleBadStatus(response.code)) {
+                            break;
                         }
                     } else {
                         backoff = 0;
+                        consecutiveFailures = 0;
                         if (response.json == null || !response.json.isJsonObject()) {
                             log.warn("Expected response to be a json object but was not.");
                             log.warn(response.json);
@@ -375,6 +388,10 @@ public class SpigetRestFetcher {
                 }
             }
 
+            if (aborted) {
+                return c;
+            }
+
             //// AUTHORS
 
             databaseClient.updateStatus("fetch.rest.type", "author");
@@ -411,17 +428,17 @@ public class SpigetRestFetcher {
                     if (response == null) {continue;}
                     if (response.code != 200) {
                         log.warn("Got Code " + response.code + " for getAuthor #" + author.getId());
-                        if (response.code == 429 || response.code == 503) {// Rate limited / Cloudflare
-                            backOff(response.code);
-                        } else if (response.code == 404) {// Author not found
+                        if (response.code == 404) {// Author not found
+                            consecutiveFailures = 0;
                             log.info("Scheduling #" + author.getId() + " for deletion");
                             requestUpdate(author.getId(), "author", true);
                             deleteAuthor(author.getId());
-                        } else {
-                            log.error("Unexpected status code");
+                        } else if (handleBadStatus(response.code)) {
+                            break;
                         }
                     } else {
                         backoff = 0;
+                        consecutiveFailures = 0;
                         if (response.json == null || !response.json.isJsonObject()) {
                             log.warn("Expected response to be a json object but was not.");
                             log.warn(response.json);
@@ -587,6 +604,26 @@ public class SpigetRestFetcher {
         }
     }
 
+    /**
+     * Handles a response that is neither 200 nor 404. 403 (Cloudflare block),
+     * 429 and 5xx back off and only leave a breadcrumb; any other code is
+     * reported. Returns true once {@link #MAX_CONSECUTIVE_FAILURES} bad
+     * responses came in a row, and the caller then stops the run.
+     */
+    boolean handleBadStatus(int code) {
+        lastFailureCode = code;
+        if (++consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            aborted = true;
+            return true;
+        }
+        if (code == 403 || code == 429 || code >= 500) {
+            backOff(code);
+        } else {
+            log.error("Unexpected status code " + code);
+        }
+        return false;
+    }
+
     void requestUpdate(int id) {
         requestUpdate(id, "resource", false);
     }
@@ -606,7 +643,18 @@ public class SpigetRestFetcher {
         request.setRequested(System.currentTimeMillis());
 
         Document document = DatabaseParser.toDocument(SpigetGson.UPDATE_REQUEST.toJsonTree(request));
-        databaseClient.getUpdateRequestsCollection().insertOne(document);
+        try {
+            databaseClient.getUpdateRequestsCollection().insertOne(document);
+        } catch (MongoWriteException e) {
+            // update_requests has a unique index on requestedId alone, so the
+            // insert fails while any request for the same number is queued,
+            // including one for a resource when this is an author. Carry on, so
+            // a 404'd author still reaches deleteAuthor() after this call.
+            if (e.getError().getCategory() != ErrorCategory.DUPLICATE_KEY) {
+                throw e;
+            }
+            log.debug("An update request for #" + id + " is already queued");
+        }
     }
 
 }
